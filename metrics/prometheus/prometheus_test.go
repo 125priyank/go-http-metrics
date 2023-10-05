@@ -161,10 +161,12 @@ func TestPrometheusRecorder(t *testing.T) {
 		{
 			name: "Using a custom labels in the configuration should measure with those labels.",
 			config: libprometheus.Config{
-				HandlerIDLabel:  "route_id",
-				StatusCodeLabel: "status_code",
-				MethodLabel:     "http_method",
-				ServiceLabel:    "http_service",
+				Labels: libprometheus.Labels{
+					HandlerIDLabel:  "route_id",
+					StatusCodeLabel: "status_code",
+					MethodLabel:     "http_method",
+					ServiceLabel:    "http_service",
+				},
 			},
 			recordMetrics: func(r metrics.Recorder) {
 				r.ObserveHTTPRequestDuration(context.TODO(), metrics.HTTPReqProperties{Service: "svc1", ID: "test1", Method: http.MethodGet, Code: "200"}, 6*time.Second)
