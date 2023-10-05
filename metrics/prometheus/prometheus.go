@@ -10,7 +10,7 @@ import (
 )
 
 type CustomLabels interface {
-	Reporter(handlerID string, method string) map[string]string
+	Reporter(handlerID string, method string, body []byte) map[string]string
 	GetLabels() []string
 }
 
@@ -135,7 +135,7 @@ func (r recorder) ObserveHTTPRequestDuration(_ context.Context, p metrics.HTTPRe
 
 	labels := prometheus.Labels{r.labels.ServiceLabel: p.Service, r.labels.HandlerIDLabel: p.ID,
 		r.labels.MethodLabel: p.Method, r.labels.StatusCodeLabel: p.Code}
-	customMetrics := r.labels.CustomLabels.Reporter(p.ID, p.Method)
+	customMetrics := r.labels.CustomLabels.Reporter(p.ID, p.Method, p.Body)
 	for _, label := range r.labels.CustomLabels.GetLabels() {
 		labels[label] = customMetrics[label]
 	}
@@ -152,7 +152,7 @@ func (r recorder) ObserveHTTPResponseSize(_ context.Context, p metrics.HTTPReqPr
 
 	labels := prometheus.Labels{r.labels.ServiceLabel: p.Service, r.labels.HandlerIDLabel: p.ID,
 		r.labels.MethodLabel: p.Method, r.labels.StatusCodeLabel: p.Code}
-	customMetrics := r.labels.CustomLabels.Reporter(p.ID, p.Method)
+	customMetrics := r.labels.CustomLabels.Reporter(p.ID, p.Method, p.Body)
 	for _, label := range r.labels.CustomLabels.GetLabels() {
 		labels[label] = customMetrics[label]
 	}

@@ -1,7 +1,9 @@
 package gomux
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
 
 	"bufio"
@@ -59,6 +61,16 @@ func (s *stdReporter) URLPath() string {
 func (s *stdReporter) StatusCode() int { return s.w.statusCode }
 
 func (s *stdReporter) BytesWritten() int64 { return int64(s.w.bytesWritten) }
+
+// GetBody returns a copy of the http request body.
+func (s *stdReporter) GetBody() []byte {
+	buf, _ := io.ReadAll(s.r.Body)
+	// Resetting the request body to allow the HTTP handler to read it again, as HTTP bodies can only be read once.
+	defer func() {
+		s.r.Body = io.NopCloser(bytes.NewBuffer(buf))
+	}()
+	return buf
+}
 
 // responseWriterInterceptor is a simple wrapper to intercept set data on a
 // ResponseWriter.

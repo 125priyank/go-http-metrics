@@ -32,6 +32,8 @@ type Config struct {
 	// DisableMeasureInflight will disable the recording metrics about the inflight requests number,
 	// by default measuring inflights is enabled (`DisableMeasureInflight` is false).
 	DisableMeasureInflight bool
+
+	EnableRequestBodyCopy bool
 }
 
 func (c *Config) defaults() {
@@ -74,6 +76,11 @@ func (m Middleware) Measure(handlerID string, reporter Reporter, next func()) {
 		hid = reporter.URLPath()
 	}
 
+	var body []byte
+	if m.cfg.EnableRequestBodyCopy {
+		body = reporter.GetBody()
+	}
+
 	// Measure inflights if required.
 	if !m.cfg.DisableMeasureInflight {
 		props := metrics.HTTPProperties{
@@ -104,6 +111,7 @@ func (m Middleware) Measure(handlerID string, reporter Reporter, next func()) {
 			ID:      hid,
 			Method:  reporter.Method(),
 			Code:    code,
+			Body:    body,
 		}
 		m.cfg.Recorder.ObserveHTTPRequestDuration(ctx, props, duration)
 
@@ -125,4 +133,5 @@ type Reporter interface {
 	URLPath() string
 	StatusCode() int
 	BytesWritten() int64
+	GetBody() []byte
 }
