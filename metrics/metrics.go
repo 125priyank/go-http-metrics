@@ -17,7 +17,7 @@ type HTTPReqProperties struct {
 	// Code is the response of the request.
 	Code string
 	// Body is the copy of the request body.
-	Body []byte
+	CustomLabelMetrics map[string]string
 }
 
 // HTTPProperties are the metric properties for the global server metrics.

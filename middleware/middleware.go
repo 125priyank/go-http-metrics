@@ -7,6 +7,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"io"
 	"strconv"
 	"time"
 
@@ -33,12 +34,15 @@ type Config struct {
 	// by default measuring inflights is enabled (`DisableMeasureInflight` is false).
 	DisableMeasureInflight bool
 
-	EnableRequestBodyCopy bool
+	MeasureCustomLabels func(handlerID string, reporter Reporter) map[string]string
 }
 
 func (c *Config) defaults() {
 	if c.Recorder == nil {
 		c.Recorder = metrics.Dummy
+	}
+	if c.MeasureCustomLabels == nil {
+		c.MeasureCustomLabels = func(handlerID string, reporter Reporter) map[string]string { return nil }
 	}
 }
 
@@ -76,11 +80,6 @@ func (m Middleware) Measure(handlerID string, reporter Reporter, next func()) {
 		hid = reporter.URLPath()
 	}
 
-	var body []byte
-	if m.cfg.EnableRequestBodyCopy {
-		body = reporter.GetBody()
-	}
-
 	// Measure inflights if required.
 	if !m.cfg.DisableMeasureInflight {
 		props := metrics.HTTPProperties{
@@ -107,11 +106,11 @@ func (m Middleware) Measure(handlerID string, reporter Reporter, next func()) {
 		}
 
 		props := metrics.HTTPReqProperties{
-			Service: m.cfg.Service,
-			ID:      hid,
-			Method:  reporter.Method(),
-			Code:    code,
-			Body:    body,
+			Service:            m.cfg.Service,
+			ID:                 hid,
+			Method:             reporter.Method(),
+			Code:               code,
+			CustomLabelMetrics: m.cfg.MeasureCustomLabels(hid, reporter),
 		}
 		m.cfg.Recorder.ObserveHTTPRequestDuration(ctx, props, duration)
 
@@ -133,5 +132,5 @@ type Reporter interface {
 	URLPath() string
 	StatusCode() int
 	BytesWritten() int64
-	GetBody() []byte
+	GetBody() io.ReadCloser
 }

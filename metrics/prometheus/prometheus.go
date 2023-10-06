@@ -9,11 +9,6 @@ import (
 	"github.com/slok/go-http-metrics/metrics"
 )
 
-type CustomLabels interface {
-	Reporter(handlerID string, method string, body []byte) map[string]string
-	GetLabels() []string
-}
-
 type Labels struct {
 	// HandlerIDLabel is the name that will be set to the handler ID label, by default is `handler`.
 	HandlerIDLabel string
@@ -24,7 +19,7 @@ type Labels struct {
 	// ServiceLabel is the name that will be set to the service label, by default is `service`.
 	ServiceLabel string
 	// CustomLabels can be used to initialize custom labels in http metrics.
-	CustomLabels CustomLabels
+	CustomLabels []string
 }
 
 // Config has the dependencies and values of the recorder.
@@ -85,11 +80,6 @@ type recorder struct {
 func NewRecorder(cfg Config) metrics.Recorder {
 	cfg.defaults()
 
-	var customLabels []string
-	if cfg.CustomLabels != nil {
-		customLabels = cfg.CustomLabels.GetLabels()
-	}
-
 	r := &recorder{
 		httpRequestDurHistogram: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: cfg.Prefix,
@@ -97,7 +87,7 @@ func NewRecorder(cfg Config) metrics.Recorder {
 			Name:      "request_duration_seconds",
 			Help:      "The latency of the HTTP requests.",
 			Buckets:   cfg.DurationBuckets,
-		}, append([]string{cfg.ServiceLabel, cfg.HandlerIDLabel, cfg.MethodLabel, cfg.StatusCodeLabel}, customLabels...)),
+		}, append([]string{cfg.ServiceLabel, cfg.HandlerIDLabel, cfg.MethodLabel, cfg.StatusCodeLabel}, cfg.CustomLabels...)),
 
 		httpResponseSizeHistogram: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: cfg.Prefix,
@@ -105,7 +95,7 @@ func NewRecorder(cfg Config) metrics.Recorder {
 			Name:      "response_size_bytes",
 			Help:      "The size of the HTTP responses.",
 			Buckets:   cfg.SizeBuckets,
-		}, append([]string{cfg.ServiceLabel, cfg.HandlerIDLabel, cfg.MethodLabel, cfg.StatusCodeLabel}, customLabels...)),
+		}, append([]string{cfg.ServiceLabel, cfg.HandlerIDLabel, cfg.MethodLabel, cfg.StatusCodeLabel}, cfg.CustomLabels...)),
 
 		httpRequestsInflight: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: cfg.Prefix,
@@ -128,16 +118,15 @@ func NewRecorder(cfg Config) metrics.Recorder {
 func (r recorder) ObserveHTTPRequestDuration(_ context.Context, p metrics.HTTPReqProperties, duration time.Duration) {
 	// If custom labels are not defined then it is better to record metrics using WithLabelValues as reporting
 	// with With() has performance overhead due to using maps.
-	if r.labels.CustomLabels == nil {
+	if len(r.labels.CustomLabels) == 0 {
 		r.httpRequestDurHistogram.WithLabelValues(p.Service, p.ID, p.Method, p.Code).Observe(duration.Seconds())
 		return
 	}
 
 	labels := prometheus.Labels{r.labels.ServiceLabel: p.Service, r.labels.HandlerIDLabel: p.ID,
 		r.labels.MethodLabel: p.Method, r.labels.StatusCodeLabel: p.Code}
-	customMetrics := r.labels.CustomLabels.Reporter(p.ID, p.Method, p.Body)
-	for _, label := range r.labels.CustomLabels.GetLabels() {
-		labels[label] = customMetrics[label]
+	for _, label := range r.labels.CustomLabels {
+		labels[label] = p.CustomLabelMetrics[label]
 	}
 	r.httpRequestDurHistogram.With(labels).Observe(duration.Seconds())
 }
@@ -145,16 +134,15 @@ func (r recorder) ObserveHTTPRequestDuration(_ context.Context, p metrics.HTTPRe
 func (r recorder) ObserveHTTPResponseSize(_ context.Context, p metrics.HTTPReqProperties, sizeBytes int64) {
 	// If custom labels are not defined then it is better to record metrics using WithLabelValues as reporting
 	// with With() has performance overhead due to using maps.
-	if r.labels.CustomLabels == nil {
+	if len(r.labels.CustomLabels) == 0 {
 		r.httpResponseSizeHistogram.WithLabelValues(p.Service, p.ID, p.Method, p.Code).Observe(float64(sizeBytes))
 		return
 	}
 
 	labels := prometheus.Labels{r.labels.ServiceLabel: p.Service, r.labels.HandlerIDLabel: p.ID,
 		r.labels.MethodLabel: p.Method, r.labels.StatusCodeLabel: p.Code}
-	customMetrics := r.labels.CustomLabels.Reporter(p.ID, p.Method, p.Body)
-	for _, label := range r.labels.CustomLabels.GetLabels() {
-		labels[label] = customMetrics[label]
+	for _, label := range r.labels.CustomLabels {
+		labels[label] = p.CustomLabelMetrics[label]
 	}
 	r.httpResponseSizeHistogram.With(labels).Observe(float64(sizeBytes))
 }
