@@ -80,6 +80,9 @@ func (m Middleware) Measure(handlerID string, reporter Reporter, next func()) {
 		hid = reporter.URLPath()
 	}
 
+	// Measure metrics for custom labels.
+	customLabelMetrics := m.cfg.MeasureCustomLabels(hid, reporter)
+
 	// Measure inflights if required.
 	if !m.cfg.DisableMeasureInflight {
 		props := metrics.HTTPProperties{
@@ -110,7 +113,7 @@ func (m Middleware) Measure(handlerID string, reporter Reporter, next func()) {
 			ID:                 hid,
 			Method:             reporter.Method(),
 			Code:               code,
-			CustomLabelMetrics: m.cfg.MeasureCustomLabels(hid, reporter),
+			CustomLabelMetrics: customLabelMetrics,
 		}
 		m.cfg.Recorder.ObserveHTTPRequestDuration(ctx, props, duration)
 

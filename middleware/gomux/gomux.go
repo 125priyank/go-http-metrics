@@ -65,10 +65,10 @@ func (s *stdReporter) StatusCode() int { return s.w.statusCode }
 
 func (s *stdReporter) BytesWritten() int64 { return int64(s.w.bytesWritten) }
 
-// GetBody returns a copy of the http response body.
+// GetBody returns a copy of the http request body.
 func (s *stdReporter) GetBody() io.ReadCloser {
 	buf, _ := io.ReadAll(s.r.Body)
-	// Resetting the response body as HTTP body can only be read once.
+	// Resetting the request body as HTTP body can only be read once.
 	defer func() {
 		s.r.Body = io.NopCloser(bytes.NewBuffer(buf))
 	}()
