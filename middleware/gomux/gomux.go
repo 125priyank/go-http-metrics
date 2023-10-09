@@ -54,7 +54,10 @@ func (s *stdReporter) URLPath() string {
 	if route == nil {
 		return s.r.URL.Path
 	}
-	path, _ := route.GetPathTemplate()
+	path, err := route.GetPathTemplate()
+	if err != nil {
+		return s.r.URL.Path
+	}
 	return path
 }
 
